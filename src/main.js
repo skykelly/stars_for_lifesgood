@@ -3,6 +3,7 @@ import { createStarfield } from './starfield.js';
 import { createConstellations } from './constellations.js';
 import { createControls } from './controls.js';
 import { createFeaturedStars, createPicker } from './picking.js';
+import { createGround } from './ground.js';
 import { createUI } from './ui.js';
 
 const WORLD = 1600;          // 성도 반경
@@ -22,6 +23,7 @@ async function init() {
   const pixelRatio = Math.min(window.devicePixelRatio, 2);
   renderer.setPixelRatio(pixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.autoClear = false; // 별밭 → 지상 오버레이 순서로 수동 렌더
 
   const scene = new THREE.Scene();
 
@@ -57,6 +59,9 @@ async function init() {
   // --- 특별한 별(고객 감사글) ---
   const featuredPoints = createFeaturedStars(starsData.featured, uniforms);
   scene.add(featuredPoints);
+
+  // --- 하단 지상(지구 곡률 지평선) ---
+  const ground = createGround();
 
   // --- UI ---
   const ui = createUI({
@@ -119,6 +124,7 @@ async function init() {
     camera.updateProjectionMatrix();
     controls.clampCamera();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    ground.setResolution(window.innerWidth, window.innerHeight);
   }
   window.addEventListener('resize', onResize);
 
@@ -149,7 +155,11 @@ async function init() {
       if (c.type === 'LineSegments') c.visible = constellationFactor > 0.02;
     });
 
+    ground.uniforms.uTime.value += dt;
+
+    renderer.clear();
     renderer.render(scene, camera);
+    renderer.render(ground.scene, ground.camera);
     requestAnimationFrame(animate);
   }
   animate();
