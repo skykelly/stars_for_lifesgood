@@ -8,9 +8,10 @@ import * as THREE from 'three';
  * - 짧게 누르면(움직임 임계값 이하) onTap(worldPoint, clientXY) 콜백
  * 카메라 이동은 성도 경계(±world) 안으로 클램프된다.
  */
-export function createControls(camera, domElement, world, onTap) {
-  const minZoom = 0.4;
-  const maxZoom = 6.0;
+export function createControls(camera, domElement, world, onTap, options = {}) {
+  // 초기 화면이 곧 최소 줌(=축소 불가). fit zoom을 main에서 계산해 전달한다.
+  let minZoom = options.minZoom ?? 0.4;
+  let maxZoom = options.maxZoom ?? 6.0;
   const dragThreshold = 6; // px
 
   let isPointerDown = false;
@@ -27,11 +28,20 @@ export function createControls(camera, domElement, world, onTap) {
     camera.zoom = THREE.MathUtils.clamp(camera.zoom, minZoom, maxZoom);
     const halfW = ((camera.right - camera.left) / 2) / camera.zoom;
     const halfH = ((camera.top - camera.bottom) / 2) / camera.zoom;
-    const limitX = Math.max(0, world - halfW * 0.35);
-    const limitY = Math.max(0, world - halfH * 0.35);
-    camera.position.x = THREE.MathUtils.clamp(camera.position.x, -world - limitX, world + limitX);
-    camera.position.y = THREE.MathUtils.clamp(camera.position.y, -world - limitY, world + limitY);
+    // 뷰가 항상 성도(±world) 안에 담기도록 팬을 엄격히 제한 → 가장자리 검은 여백 방지
+    const limitX = Math.max(0, world - halfW);
+    const limitY = Math.max(0, world - halfH);
+    camera.position.x = THREE.MathUtils.clamp(camera.position.x, -limitX, limitX);
+    camera.position.y = THREE.MathUtils.clamp(camera.position.y, -limitY, limitY);
     camera.updateProjectionMatrix();
+  }
+
+  // 화면 비율 변경(리사이즈) 시 줌 한계를 갱신한다.
+  function setZoomLimits(min, max) {
+    minZoom = min;
+    maxZoom = max;
+    if (camera.zoom < minZoom) camera.zoom = minZoom;
+    clampCamera();
   }
 
   // 화면 좌표(px) → 월드 좌표
@@ -134,7 +144,7 @@ export function createControls(camera, domElement, world, onTap) {
   }
 
   function reset() {
-    focusOn(0, 0, 1.0);
+    focusOn(0, 0, minZoom); // 초기(가장 축소된) 상태로 복귀
   }
 
   // 매 프레임 tween 갱신
@@ -150,5 +160,9 @@ export function createControls(camera, domElement, world, onTap) {
     if (tween.t >= 1) tween = null;
   }
 
-  return { update, focusOn, reset, screenToWorld, clampCamera, get zoom() { return camera.zoom; } };
+  return {
+    update, focusOn, reset, screenToWorld, clampCamera, setZoomLimits,
+    get zoom() { return camera.zoom; },
+    get minZoom() { return minZoom; },
+  };
 }

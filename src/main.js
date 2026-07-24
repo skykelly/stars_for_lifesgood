@@ -9,6 +9,13 @@ import { createUI } from './ui.js';
 const WORLD = 1600;          // 성도 반경
 const STAR_COUNT = 10000;    // 배경 별 개수
 const BASE_VIEW_HEIGHT = 2200;
+const ZOOM_RANGE = 6;        // 최소 줌 대비 최대 확대 배율
+
+// 화면 비율에 맞춰 성도가 화면을 '꽉 채우는' 최소 줌을 계산한다.
+// 이 값이 초기 줌이자 최소 줌 → 축소는 불가, 확대만 가능.
+function computeFitZoom(aspect) {
+  return (BASE_VIEW_HEIGHT / 2) / WORLD * Math.max(aspect, 1);
+}
 
 async function loadJSON(path) {
   const res = await fetch(path);
@@ -33,6 +40,10 @@ async function init() {
   const halfW = halfH * aspect;
   const camera = new THREE.OrthographicCamera(-halfW, halfW, halfH, -halfH, 0.1, 1000);
   camera.position.set(0, 0, 100);
+  // 초기 화면을 별로 꽉 채우고, 이 줌을 최소값으로 고정
+  const fitZoom = computeFitZoom(aspect);
+  camera.zoom = fitZoom;
+  camera.updateProjectionMatrix();
 
   // 모든 별 셰이더가 공유하는 uniform
   const uniforms = {
@@ -92,9 +103,10 @@ async function init() {
         message: hit.message,
         accent: hit.constellation.color,
       });
-      controls.focusOn(hit.worldPos.x, hit.worldPos.y, 2.1);
+      // 항상 확대 방향이 되도록 최소 줌보다 크게
+      controls.focusOn(hit.worldPos.x, hit.worldPos.y, Math.max(2.1, controls.minZoom * 1.7));
     }
-  });
+  }, { minZoom: fitZoom, maxZoom: fitZoom * ZOOM_RANGE });
 
   // 호버 시 커서 변경 (작은 픽킹 대상만 검사 → 저렴)
   let hoverRaf = false;
@@ -122,7 +134,9 @@ async function init() {
     camera.top = hh;
     camera.bottom = -hh;
     camera.updateProjectionMatrix();
-    controls.clampCamera();
+    // 새 비율에 맞춘 fit zoom으로 최소 줌 갱신(축소 불가 유지)
+    const newFit = computeFitZoom(a);
+    controls.setZoomLimits(newFit, newFit * ZOOM_RANGE);
     renderer.setSize(window.innerWidth, window.innerHeight);
     ground.setResolution(window.innerWidth, window.innerHeight);
   }
