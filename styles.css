@@ -139,6 +139,18 @@ html, body {
   transition: background 0.15s;
 }
 .card-close:hover { background: rgba(255, 255, 255, 0.16); color: #fff; }
+.card-kicker {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  padding: 4px 10px;
+  margin-bottom: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
 .card-phrase {
   font-size: 15px;
   font-weight: 600;

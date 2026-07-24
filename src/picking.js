@@ -17,12 +17,21 @@ export function createFeaturedStars(featured, uniforms) {
     positions[i * 3 + 0] = featured[i].x;
     positions[i * 3 + 1] = featured[i].y;
     positions[i * 3 + 2] = 2;
-    colors[i * 3 + 0] = 1.0;
-    colors[i * 3 + 1] = 0.86;
-    colors[i * 3 + 2] = 0.5;
-    sizes[i] = 11.0;
+    // '고객의 목소리' 별은 더 크고 밝은 흰빛으로 도드라지게
+    if (featured[i].voice) {
+      colors[i * 3 + 0] = 1.0;
+      colors[i * 3 + 1] = 0.96;
+      colors[i * 3 + 2] = 0.82;
+      sizes[i] = 15.0;
+      speeds[i] = 1.0 + Math.random() * 1.0;
+    } else {
+      colors[i * 3 + 0] = 1.0;
+      colors[i * 3 + 1] = 0.86;
+      colors[i * 3 + 2] = 0.5;
+      sizes[i] = 11.0;
+      speeds[i] = 0.8 + Math.random() * 1.2;
+    }
     phases[i] = Math.random() * Math.PI * 2;
-    speeds[i] = 0.8 + Math.random() * 1.2;
   }
 
   const geometry = new THREE.BufferGeometry();
@@ -76,6 +85,7 @@ export function createPicker(camera, domElement, featuredPoints, featuredData, n
         type: 'featured',
         name: d.name,
         message: d.message,
+        voice: !!d.voice,
         worldPos: new THREE.Vector2(d.x, d.y),
       };
     } else {

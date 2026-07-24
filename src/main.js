@@ -95,7 +95,12 @@ async function init() {
       return;
     }
     if (hit.type === 'featured') {
-      ui.showMessage({ title: hit.name, message: hit.message, accent: '#ffd97a' });
+      ui.showMessage({
+        title: hit.name,
+        message: hit.message,
+        accent: hit.voice ? '#fff0c8' : '#ffd97a',
+        kicker: hit.voice ? '고객의 목소리' : null,
+      });
     } else {
       ui.showMessage({
         title: hit.name,
@@ -139,6 +144,8 @@ async function init() {
     controls.setZoomLimits(newFit, newFit * ZOOM_RANGE);
     renderer.setSize(window.innerWidth, window.innerHeight);
     ground.setResolution(window.innerWidth, window.innerHeight);
+    // fat line은 픽셀 단위 굵기 → 뷰포트 해상도 갱신 필요
+    for (const m of cons.lineMaterials) m.resolution.set(window.innerWidth, window.innerHeight);
   }
   window.addEventListener('resize', onResize);
 
@@ -157,17 +164,18 @@ async function init() {
     uniforms.uTwinkle.value = twinkleFactor;
     uniforms.uZoom.value = camera.zoom;
 
-    // 별자리 선 / 라벨 페이드
-    for (const m of cons.lineMaterials) m.opacity = 0.6 * constellationFactor;
+    // 별자리 선 / 라벨 페이드 + 은은한 발광 호흡
+    const glowPulse = 0.8 + 0.2 * Math.sin(uniforms.uTime.value * 0.9);
+    for (const m of cons.lineMaterials) {
+      m.opacity = m.userData.baseOpacity * constellationFactor * glowPulse;
+    }
     const labelOpacity = constellationFactor * labelFactor;
     for (const s of cons.labels) {
       s.material.opacity = labelOpacity;
       s.visible = labelOpacity > 0.02;
     }
     // 완전히 꺼진 별자리 선은 렌더 생략
-    cons.group.children.forEach((c) => {
-      if (c.type === 'LineSegments') c.visible = constellationFactor > 0.02;
-    });
+    for (const line of cons.lineObjects) line.visible = constellationFactor > 0.02;
 
     ground.uniforms.uTime.value += dt;
 

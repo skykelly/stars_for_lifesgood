@@ -1,9 +1,32 @@
 import * as THREE from 'three';
+import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
+import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { STAR_VERTEX, STAR_FRAGMENT } from './starfield.js';
 
 function hexToRgb(hex) {
   const n = parseInt(hex.slice(1), 16);
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+}
+
+// 굵고 은은하게 빛나는 별자리 선(fat line) 한 겹을 만든다.
+// worldUnits=false → linewidth는 화면 픽셀 단위. resolution은 뷰포트 크기로 갱신 필요.
+function makeGlowLine(geometry, color, linewidth, opacity) {
+  const material = new LineMaterial({
+    color: new THREE.Color(color),
+    linewidth,
+    transparent: true,
+    opacity,
+    depthTest: false,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  material.resolution.set(window.innerWidth, window.innerHeight);
+  material.userData.baseOpacity = opacity;
+  const line = new LineSegments2(geometry, material);
+  line.frustumCulled = false;
+  line.userData.isConstellationLine = true;
+  return { line, material };
 }
 
 // 별자리 이름/문구를 그린 텍스트 스프라이트를 만든다.
@@ -52,6 +75,7 @@ function makeLabel(constellation) {
 export function createConstellations(data, uniforms) {
   const group = new THREE.Group();
   const lineMaterials = [];
+  const lineObjects = [];
   const labels = [];
   const scale = data.scale || 190;
 
@@ -77,19 +101,20 @@ export function createConstellations(data, uniforms) {
       linePositions.push(worldNodes[a][0], worldNodes[a][1], 0);
       linePositions.push(worldNodes[b][0], worldNodes[b][1], 0);
     }
-    const lineGeo = new THREE.BufferGeometry();
-    lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
-    const lineMat = new THREE.LineBasicMaterial({
-      color: new THREE.Color(c.color),
-      transparent: true,
-      opacity: 0.55,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    });
-    const lines = new THREE.LineSegments(lineGeo, lineMat);
-    lines.frustumCulled = false;
-    group.add(lines);
-    lineMaterials.push(lineMat);
+    const lineGeo = new LineSegmentsGeometry();
+    lineGeo.setPositions(linePositions);
+
+    // 코어 색은 별자리 색을 흰색 쪽으로 밝혀 뜨거운 심지 느낌을 준다.
+    const coreColor = new THREE.Color(c.color).lerp(new THREE.Color(0xffffff), 0.45);
+
+    // 넓고 투명한 발광 헤일로 → 굵고 은은한 빛번짐
+    const halo = makeGlowLine(lineGeo, c.color, 13.0, 0.16);
+    // 가는 밝은 코어
+    const core = makeGlowLine(lineGeo, coreColor, 4.0, 0.85);
+    group.add(halo.line);
+    group.add(core.line);
+    lineMaterials.push(halo.material, core.material);
+    lineObjects.push(halo.line, core.line);
 
     // 라벨 (별자리 상단)
     const ys = worldNodes.map((p) => p[1]);
@@ -134,5 +159,5 @@ export function createConstellations(data, uniforms) {
   nodePoints.frustumCulled = false;
   group.add(nodePoints);
 
-  return { group, lineMaterials, labels, nodePoints, nodeMeta };
+  return { group, lineMaterials, lineObjects, labels, nodePoints, nodeMeta };
 }

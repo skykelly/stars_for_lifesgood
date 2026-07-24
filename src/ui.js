@@ -55,9 +55,10 @@ export function createUI(handlers) {
   document.body.appendChild(card);
   let cardVisible = false;
 
-  function showMessage({ title, phrase, message, accent }) {
+  function showMessage({ title, phrase, message, accent, kicker }) {
     card.innerHTML = `
       <button class="card-close" aria-label="닫기">×</button>
+      ${kicker ? `<div class="card-kicker">🎙 ${kicker}</div>` : ''}
       ${phrase ? `<div class="card-phrase">"${phrase}"</div>` : ''}
       <div class="card-message">${message}</div>
       <div class="card-title">— ${title}</div>
