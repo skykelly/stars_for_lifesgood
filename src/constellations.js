@@ -107,10 +107,9 @@ export function createConstellations(data, uniforms) {
     // 코어 색은 별자리 색을 흰색 쪽으로 밝혀 뜨거운 심지 느낌을 준다.
     const coreColor = new THREE.Color(c.color).lerp(new THREE.Color(0xffffff), 0.45);
 
-    // 넓고 투명한 발광 헤일로 → 굵고 은은한 빛번짐
-    const halo = makeGlowLine(lineGeo, c.color, 13.0, 0.16);
-    // 가는 밝은 코어
-    const core = makeGlowLine(lineGeo, coreColor, 4.0, 0.85);
+    // 얇고 은은하게 빛나는 흰 선: 넓고 투명한 발광 헤일로 + 가는 밝은 코어
+    const halo = makeGlowLine(lineGeo, c.color, 5.0, 0.13);
+    const core = makeGlowLine(lineGeo, coreColor, 1.4, 0.9);
     group.add(halo.line);
     group.add(core.line);
     lineMaterials.push(halo.material, core.material);
