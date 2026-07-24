@@ -1,0 +1,165 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --accent: #8ec5ff;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #02030a;
+  font-family: "Noto Sans KR", system-ui, -apple-system, "Malgun Gothic", sans-serif;
+  color: #fff;
+}
+
+#scene {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  cursor: grab;
+  touch-action: none;
+}
+#scene:active { cursor: grabbing; }
+
+/* ---- 조작 안내 (좌상단) ---- */
+.hint {
+  position: fixed;
+  top: 22px;
+  left: 24px;
+  z-index: 10;
+  pointer-events: none;
+  max-width: 70vw;
+}
+.hint-title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 18px rgba(142, 197, 255, 0.5);
+}
+.hint-sub {
+  margin-top: 6px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+/* ---- 컨트롤 바 (하단 중앙) ---- */
+.control-bar {
+  position: fixed;
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  gap: 10px;
+  padding: 8px;
+  background: rgba(12, 16, 32, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+.toggle-btn:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+.toggle-btn .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  transition: all 0.18s ease;
+}
+.toggle-btn.on {
+  color: #fff;
+  border-color: rgba(142, 197, 255, 0.5);
+  background: rgba(142, 197, 255, 0.14);
+}
+.toggle-btn.on .dot {
+  background: #8ec5ff;
+  box-shadow: 0 0 10px #8ec5ff;
+}
+.toggle-btn.action {
+  color: rgba(255, 255, 255, 0.75);
+}
+.toggle-btn.action:hover {
+  border-color: rgba(255, 217, 122, 0.5);
+  background: rgba(255, 217, 122, 0.12);
+}
+
+/* ---- 메시지 카드 ---- */
+.message-card {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translate(-50%, 20px);
+  z-index: 20;
+  width: min(460px, 88vw);
+  padding: 26px 28px 22px;
+  background: rgba(10, 14, 30, 0.82);
+  border: 1px solid var(--accent);
+  border-radius: 18px;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.6), 0 0 22px color-mix(in srgb, var(--accent) 35%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.28s ease, transform 0.28s ease;
+}
+.message-card.visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+}
+.card-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.card-close:hover { background: rgba(255, 255, 255, 0.16); color: #fff; }
+.card-phrase {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 12px;
+  text-shadow: 0 0 14px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.card-message {
+  font-size: 16px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.94);
+}
+.card-title {
+  margin-top: 16px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
+  text-align: right;
+}
+
+@media (max-width: 560px) {
+  .control-bar { gap: 6px; padding: 6px; bottom: 18px; }
+  .toggle-btn { padding: 8px 12px; font-size: 13px; }
+  .hint-title { font-size: 17px; }
+}
