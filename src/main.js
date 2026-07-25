@@ -1,10 +1,11 @@
 import * as THREE from 'three';
-import { createStarfield } from './starfield.js';
+import { createStarfield, STAR_VERTEX, STAR_FRAGMENT } from './starfield.js';
 import { createConstellations } from './constellations.js';
 import { createControls } from './controls.js';
-import { createFeaturedStars, createPicker } from './picking.js';
+import { createPicker } from './picking.js';
 import { createGround } from './ground.js';
 import { createUI } from './ui.js';
+import { getVoice } from './voices.js';
 
 const WORLD = 1600;          // 성도 반경
 const STAR_COUNT = 10000;    // 배경 별 개수
@@ -59,10 +60,7 @@ async function init() {
   scene.add(starfield);
 
   // --- 데이터 로드 ---
-  const [constData, starsData] = await Promise.all([
-    loadJSON('./data/constellations.json'),
-    loadJSON('./data/stars.json'),
-  ]);
+  const constData = await loadJSON('./data/constellations.json');
 
   // --- 별자리 (별자리별 독립 제어) ---
   const cons = createConstellations(constData, uniforms);
@@ -70,24 +68,55 @@ async function init() {
   const nConst = cons.items.length;
   const constFactors = new Array(nConst).fill(0);
 
-  // --- 특별한 별(고객의 소리) ---
-  const featuredPoints = createFeaturedStars(starsData.featured, uniforms);
-  scene.add(featuredPoints);
-
-  // 각 featured 별 → 가장 가까운 별자리 인덱스 (Auto 모드에서 함께 표시)
-  const featuredConstIndex = starsData.featured.map((s) => {
-    let best = 0, bestD = Infinity;
+  // 임의 월드 좌표 → 가장 가까운 별자리 아이템(색상/인덱스)
+  function nearestConst(x, y) {
+    let best = cons.items[0], bestD = Infinity;
     for (const it of cons.items) {
-      const dx = s.x - it.data.center[0];
-      const dy = s.y - it.data.center[1];
+      const dx = x - it.data.center[0];
+      const dy = y - it.data.center[1];
       const d = dx * dx + dy * dy;
-      if (d < bestD) { bestD = d; best = it.index; }
+      if (d < bestD) { bestD = d; best = it; }
     }
     return best;
-  });
+  }
+
+  // --- 클릭/Auto로 강조되는 별 (더 크게 + 별자리 지정 색상) ---
+  const hlGeo = new THREE.BufferGeometry();
+  hlGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3), 3));
+  hlGeo.setAttribute('aColor', new THREE.BufferAttribute(new Float32Array([1, 1, 1]), 3));
+  hlGeo.setAttribute('aSize', new THREE.BufferAttribute(new Float32Array([26]), 1));
+  hlGeo.setAttribute('aPhase', new THREE.BufferAttribute(new Float32Array([0]), 1));
+  hlGeo.setAttribute('aSpeed', new THREE.BufferAttribute(new Float32Array([0]), 1));
+  const hlUniforms = {
+    uTime: uniforms.uTime, uTwinkle: { value: 0 }, uZoom: uniforms.uZoom,
+    uPixelRatio: uniforms.uPixelRatio, uOpacity: { value: 0 },
+  };
+  const highlight = new THREE.Points(hlGeo, new THREE.ShaderMaterial({
+    uniforms: hlUniforms, vertexShader: STAR_VERTEX, fragmentShader: STAR_FRAGMENT,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  }));
+  highlight.frustumCulled = false;
+  scene.add(highlight);
+  let hlTarget = 0;
+  const _hlColor = new THREE.Color();
+  function setHighlight(x, y, colorHex) {
+    const pos = hlGeo.getAttribute('position'); pos.setXYZ(0, x, y, 3); pos.needsUpdate = true;
+    _hlColor.set(colorHex);
+    const col = hlGeo.getAttribute('aColor'); col.setXYZ(0, _hlColor.r, _hlColor.g, _hlColor.b); col.needsUpdate = true;
+    hlTarget = 1;
+  }
+  function clearHighlight() { hlTarget = 0; }
 
   // --- 하단 지상(지구 곡률 지평선) ---
   const ground = createGround();
+
+  // Auto 쇼케이스용: 지상 위 중앙 영역(잘 보이는 곳)의 별 인덱스 모음
+  const _sfPos = starfield.geometry.getAttribute('position');
+  const showcaseIdx = [];
+  for (let i = 0; i < _sfPos.count; i++) {
+    const x = _sfPos.getX(i), y = _sfPos.getY(i);
+    if (x > -1350 && x < 1350 && y > -420 && y < 900) showcaseIdx.push(i);
+  }
 
   // 월드 좌표 → 화면 픽셀
   const _v = new THREE.Vector3();
@@ -103,34 +132,33 @@ async function init() {
   let autoActiveIdx = -1;    // Auto가 현재 보여주는 별자리 인덱스
   let activeAnchor = null;   // 팝업이 따라갈 월드 좌표 {x,y}
 
-  function showPopupAt(worldX, worldY, opts) {
+  // 별을 선택: 팝업 + 강조(더 크고 별자리 색상). 소속 별자리 인덱스 반환.
+  function selectStar(worldX, worldY, opts) {
+    const c = nearestConst(worldX, worldY);
     activeAnchor = { x: worldX, y: worldY };
-    ui.showMessage(opts);
+    setHighlight(worldX, worldY, c.data.color);
+    ui.showMessage({ ...opts, accent: c.data.color });
     const p = worldToScreen(worldX, worldY);
     ui.positionCard(p.x, p.y);
+    return c.index;
   }
   function hidePopup() {
     ui.hideMessage();
     activeAnchor = null;
+    clearHighlight();
   }
 
   // --- Auto 시퀀스: 고객의 소리 팝업 + 해당 별자리를 하나씩 랜덤으로 2초간 ---
   let autoT1 = null, autoT2 = null, lastAutoIdx = -1;
   function clearAutoTimers() { clearTimeout(autoT1); clearTimeout(autoT2); autoT1 = autoT2 = null; }
   function autoStep() {
-    if (!autoOn) return;
-    const len = starsData.featured.length;
-    let i;
-    do { i = Math.floor(Math.random() * len); } while (len > 1 && i === lastAutoIdx);
-    lastAutoIdx = i;
-    const d = starsData.featured[i];
-    autoActiveIdx = featuredConstIndex[i];
-    showPopupAt(d.x, d.y, {
-      title: d.name,
-      message: d.message,
-      accent: d.voice ? '#fff0c8' : '#ffd97a',
-      kicker: d.voice ? '고객의 목소리' : null,
-    });
+    if (!autoOn || showcaseIdx.length === 0) return;
+    let k;
+    do { k = showcaseIdx[Math.floor(Math.random() * showcaseIdx.length)]; } while (showcaseIdx.length > 1 && k === lastAutoIdx);
+    lastAutoIdx = k;
+    const x = _sfPos.getX(k), y = _sfPos.getY(k);
+    const v = getVoice(k);
+    autoActiveIdx = selectStar(x, y, { title: v.name, message: v.message, kicker: '고객의 소리' });
     autoT1 = setTimeout(() => {
       if (!autoOn) return;
       hidePopup();
@@ -165,40 +193,54 @@ async function init() {
     onReset: () => controls.reset(),
   });
 
-  // --- 픽킹 ---
-  const picker = createPicker(camera, canvas, featuredPoints, starsData.featured, cons.nodePointsList);
+  // --- 픽킹 (배경 별 전체 + 별자리 노드) ---
+  const picker = createPicker(camera, canvas, starfield, cons.nodePointsList);
 
   // --- 컨트롤 ---
   const controls = createControls(camera, canvas, WORLD, (worldPoint, clientXY) => {
     const hit = picker.pick(clientXY.x, clientXY.y);
     if (!hit) { hidePopup(); return; }
-    if (hit.type === 'featured') {
-      showPopupAt(hit.worldPos.x, hit.worldPos.y, {
-        title: hit.name,
-        message: hit.message,
-        accent: hit.voice ? '#fff0c8' : '#ffd97a',
-        kicker: hit.voice ? '고객의 목소리' : null,
-      });
+    if (hit.type === 'star') {
+      // 모든 별 = 고객의 소리
+      const v = getVoice(hit.index);
+      selectStar(hit.worldPos.x, hit.worldPos.y, { title: v.name, message: v.message, kicker: '고객의 소리' });
     } else {
-      showPopupAt(hit.worldPos.x, hit.worldPos.y, {
-        title: hit.name,
-        phrase: hit.phrase,
-        message: hit.message,
-        accent: '#ffffff',
-      });
+      // 별자리 노드: 테마 메시지 + 강조 + 포커스
+      const c = hit.constellation;
+      activeAnchor = { x: hit.worldPos.x, y: hit.worldPos.y };
+      setHighlight(hit.worldPos.x, hit.worldPos.y, c.color);
+      ui.showMessage({ title: hit.name, phrase: hit.phrase, message: hit.message, accent: c.color });
+      const p = worldToScreen(hit.worldPos.x, hit.worldPos.y);
+      ui.positionCard(p.x, p.y);
       controls.focusOn(hit.worldPos.x, hit.worldPos.y, Math.max(2.1, controls.minZoom * 1.7));
     }
   }, { minZoom: fitZoom, maxZoom: fitZoom * ZOOM_RANGE });
 
-  // 호버 시 커서 변경 (작은 픽킹 대상만 검사 → 저렴)
+  // 호버: 고객 이름만 투명 텍스트로 표시(드래그 중엔 숨김)
+  let isDown = false;
+  canvas.addEventListener('pointerdown', () => { isDown = true; });
+  window.addEventListener('pointerup', () => { isDown = false; });
   let hoverRaf = false;
   canvas.addEventListener('pointermove', (e) => {
     if (hoverRaf) return;
     hoverRaf = true;
     requestAnimationFrame(() => {
       hoverRaf = false;
+      if (isDown) { ui.hideName(); return; }
       const hit = picker.pick(e.clientX, e.clientY);
-      canvas.style.cursor = hit ? 'pointer' : 'grab';
+      if (hit && hit.type === 'star') {
+        const v = getVoice(hit.index);
+        const p = worldToScreen(hit.worldPos.x, hit.worldPos.y);
+        ui.showName(v.name, p.x, p.y);
+        canvas.style.cursor = 'pointer';
+      } else if (hit && hit.type === 'constellation') {
+        const p = worldToScreen(hit.worldPos.x, hit.worldPos.y);
+        ui.showName(hit.constellation.name, p.x, p.y);
+        canvas.style.cursor = 'pointer';
+      } else {
+        ui.hideName();
+        canvas.style.cursor = 'grab';
+      }
     });
   });
 
@@ -247,6 +289,10 @@ async function init() {
       it.nodeUniforms.uOpacity.value = f;
       it.nodePoints.visible = f > 0.02;
     }
+
+    // 강조 별 페이드
+    hlUniforms.uOpacity.value += (hlTarget - hlUniforms.uOpacity.value) * Math.min(1, dt * 8);
+    highlight.visible = hlUniforms.uOpacity.value > 0.02;
 
     // 팝업이 별을 따라가도록(줌·팬 시)
     if (activeAnchor && ui.isCardVisible()) {

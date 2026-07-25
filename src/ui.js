@@ -58,6 +58,20 @@ export function createUI(handlers) {
   `;
   document.body.appendChild(hint);
 
+  // ---- 호버 시 고객 이름 (글박스 없이 투명 텍스트) ----
+  const hoverName = document.createElement('div');
+  hoverName.className = 'hover-name';
+  document.body.appendChild(hoverName);
+  function showName(text, x, y) {
+    hoverName.textContent = text;
+    hoverName.style.left = `${x}px`;
+    hoverName.style.top = `${y}px`;
+    hoverName.classList.add('visible');
+  }
+  function hideName() {
+    hoverName.classList.remove('visible');
+  }
+
   // ---- 메시지 팝업 (별 옆에 뜸) ----
   const card = document.createElement('div');
   card.className = 'message-card';
@@ -107,5 +121,5 @@ export function createUI(handlers) {
     if (e.key === 'Escape' && cardVisible) hideMessage();
   });
 
-  return { state, setToggle, showMessage, positionCard, hideMessage, isCardVisible: () => cardVisible };
+  return { state, setToggle, showMessage, positionCard, hideMessage, isCardVisible: () => cardVisible, showName, hideName };
 }

@@ -4,11 +4,6 @@ import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { STAR_VERTEX, STAR_FRAGMENT } from './starfield.js';
 
-function hexToRgb(hex) {
-  const n = parseInt(hex.slice(1), 16);
-  return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
-}
-
 // 별자리 이름/문구를 그린 텍스트 스프라이트(작게)를 만든다.
 function makeLabel(constellation) {
   const canvas = document.createElement('canvas');
@@ -18,18 +13,21 @@ function makeLabel(constellation) {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, w, h);
 
+  const color = constellation.color || '#ffffff';
   ctx.textAlign = 'center';
-  ctx.shadowColor = 'rgba(255,255,255,0.6)';
-  ctx.shadowBlur = 12;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 14;
 
-  ctx.fillStyle = '#ffffff';
+  // 라벨만 별자리 지정 색상으로 표시
+  ctx.fillStyle = color;
   ctx.font = '700 46px "Noto Sans KR", system-ui, sans-serif';
   ctx.fillText(constellation.name, w / 2, 72);
 
-  ctx.shadowBlur = 6;
-  ctx.fillStyle = 'rgba(255,255,255,0.78)';
+  ctx.shadowBlur = 7;
+  ctx.globalAlpha = 0.82;
   ctx.font = '500 26px "Noto Sans KR", system-ui, sans-serif';
   ctx.fillText(constellation.phrase, w / 2, 118);
+  ctx.globalAlpha = 1;
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.anisotropy = 4;
@@ -92,10 +90,9 @@ export function createConstellations(data, sharedUniforms) {
 
   list.forEach((c, index) => {
     const [cx, cy] = c.center;
-    const rgb = hexToRgb(c.color);
     const worldNodes = c.nodes.map(([nx, ny]) => [cx + nx * scale, cy + ny * scale]);
 
-    // --- 연결선 (fat line, 얇고 은은) ---
+    // --- 연결선 (fat line, 얇고 은은 · 흰색) ---
     const linePositions = [];
     for (const [a, b] of c.edges) {
       linePositions.push(worldNodes[a][0], worldNodes[a][1], 0);
@@ -104,10 +101,9 @@ export function createConstellations(data, sharedUniforms) {
     const lineGeo = new LineSegmentsGeometry();
     lineGeo.setPositions(linePositions);
 
-    const coreColor = new THREE.Color(c.color).lerp(new THREE.Color(0xffffff), 0.45);
-    // 선 투명도 ~50%: 코어 0.5 + 넓고 투명한 발광 헤일로
-    const halo = makeGlowLine(lineGeo, c.color, 5.0, 0.22);
-    const core = makeGlowLine(lineGeo, coreColor, 1.4, 0.5);
+    // 선 투명도 ~50%: 코어 0.5 + 넓고 투명한 발광 헤일로 (색상은 흰색)
+    const halo = makeGlowLine(lineGeo, '#ffffff', 5.0, 0.22);
+    const core = makeGlowLine(lineGeo, '#ffffff', 1.4, 0.5);
     group.add(halo.line, core.line);
     lineMaterials.push(halo.material, core.material);
 
@@ -129,9 +125,9 @@ export function createConstellations(data, sharedUniforms) {
       positions[i * 3 + 0] = wx;
       positions[i * 3 + 1] = wy;
       positions[i * 3 + 2] = 1;
-      colors[i * 3 + 0] = rgb[0];
-      colors[i * 3 + 1] = rgb[1];
-      colors[i * 3 + 2] = rgb[2];
+      colors[i * 3 + 0] = 1.0; // 노드 별은 흰색
+      colors[i * 3 + 1] = 1.0;
+      colors[i * 3 + 2] = 1.0;
       sizes[i] = 9.0;
       phases[i] = Math.random() * Math.PI * 2;
       speeds[i] = 0.6 + Math.random() * 1.4;
