@@ -26,6 +26,7 @@ export const STAR_VERTEX = /* glsl */ `
 
 export const STAR_FRAGMENT = /* glsl */ `
   precision mediump float;
+  uniform float uOpacity;
   varying vec3 vColor;
   varying float vTw;
   void main() {
@@ -35,6 +36,7 @@ export const STAR_FRAGMENT = /* glsl */ `
     float core = smoothstep(0.22, 0.0, d);
     float alpha = glow * 0.45 + core * 0.75;
     alpha *= (0.3 + 0.7 * vTw);
+    alpha *= uOpacity;
     if (alpha < 0.01) discard;
     gl_FragColor = vec4(vColor * (0.55 + 0.7 * vTw), alpha);
   }

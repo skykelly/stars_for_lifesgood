@@ -57,7 +57,7 @@ export function createFeaturedStars(featured, uniforms) {
 /**
  * 클릭/호버 픽킹. 작은 픽킹 대상(특별한 별 + 별자리 노드)만 검사하므로 저렴하다.
  */
-export function createPicker(camera, domElement, featuredPoints, featuredData, nodePoints, nodeMeta) {
+export function createPicker(camera, domElement, featuredPoints, featuredData, nodePointsList) {
   const raycaster = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
 
@@ -73,7 +73,7 @@ export function createPicker(camera, domElement, featuredPoints, featuredData, n
     raycaster.params.Points.threshold = 26 / camera.zoom;
     raycaster.setFromCamera(ndc, camera);
 
-    const hits = raycaster.intersectObjects([featuredPoints, nodePoints], false);
+    const hits = raycaster.intersectObjects([featuredPoints, ...nodePointsList], false);
     if (hits.length === 0) return null;
 
     // 가장 가까운(화면상) 히트 선택
@@ -89,9 +89,10 @@ export function createPicker(camera, domElement, featuredPoints, featuredData, n
         worldPos: new THREE.Vector2(d.x, d.y),
       };
     } else {
-      const c = nodeMeta[hit.index];
+      const c = hit.object.userData.constellation;
       return {
         type: 'constellation',
+        index: hit.object.userData.index,
         name: `${c.name} · ${c.subtitle}`,
         phrase: c.phrase,
         message: c.message,
