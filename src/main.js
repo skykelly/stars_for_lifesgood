@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createStarfield, STAR_VERTEX, STAR_FRAGMENT } from './starfield.js';
-import { createConstellations } from './constellations.js';
+import { createConstellations, pointAtLength } from './constellations.js';
 import { createControls } from './controls.js';
 import { createPicker } from './picking.js';
 import { createGround } from './ground.js';
@@ -65,8 +65,6 @@ async function init() {
   // --- 별자리 (별자리별 독립 제어) ---
   const cons = createConstellations(constData, uniforms);
   scene.add(cons.group);
-  const nConst = cons.items.length;
-  const constFactors = new Array(nConst).fill(0);
 
   // 임의 월드 좌표 → 가장 가까운 별자리 아이템(색상/인덱스)
   function nearestConst(x, y) {
@@ -305,20 +303,50 @@ async function init() {
     uniforms.uTwinkle.value = twinkleFactor;
     uniforms.uZoom.value = camera.zoom;
 
-    // 별자리별 목표 팩터: 수동이면 전체 표시, Auto면 활성 하나만 표시
+    // 별자리: 나타날 때 선을 점진적으로 그리고(끝점 발광), 사라질 땐 페이드아웃
     const glowPulse = 0.8 + 0.2 * Math.sin(uniforms.uTime.value * 0.9);
+    const DRAW_DUR = 1.3; // 그리기 시간(초)
     for (const it of cons.items) {
-      let target = 0;
-      if (manualConst) target = 1;
-      else if (autoOn && it.index === autoActiveIdx) target = 1;
-      constFactors[it.index] += (target - constFactors[it.index]) * Math.min(1, dt * 4);
-      const f = constFactors[it.index];
-      for (const m of it.lineMaterials) m.opacity = m.userData.baseOpacity * f * glowPulse;
-      it.label.material.opacity = f;
-      it.label.visible = f > 0.02;
-      for (const line of it.lineObjects) line.visible = f > 0.02;
-      it.nodeUniforms.uOpacity.value = f;
-      it.nodePoints.visible = f > 0.02;
+      const shouldShow = manualConst || (autoOn && it.index === autoActiveIdx);
+      if (shouldShow && !it.shown) { it.drawT = 0; it.shown = true; }
+      if (!shouldShow) it.shown = false;
+      if (shouldShow && it.drawT < 1) it.drawT = Math.min(1, it.drawT + dt / DRAW_DUR);
+
+      // 표시 알파: 켜질 땐 빠르게 1, 꺼질 땐 부드럽게 0
+      const oTarget = shouldShow ? 1 : 0;
+      it.opacity += (oTarget - it.opacity) * Math.min(1, dt * (shouldShow ? 12 : 4));
+      const vis = it.opacity > 0.02;
+
+      // 선: dash로 진행 그리기 + 발광 호흡
+      for (const s of it.strokes) {
+        const dash = Math.max(1.5, it.drawT * s.length);
+        s.halo.material.dashSize = dash;
+        s.core.material.dashSize = dash;
+        s.halo.material.opacity = s.halo.material.userData.baseOpacity * it.opacity * glowPulse;
+        s.core.material.opacity = s.core.material.userData.baseOpacity * it.opacity * glowPulse;
+        s.halo.line.visible = vis;
+        s.core.line.visible = vis;
+      }
+
+      // 노드/라벨: 그리기 진행에 따라 서서히 밝아짐
+      it.nodeUniforms.uOpacity.value = it.opacity * (0.15 + 0.85 * it.drawT);
+      it.nodePoints.visible = vis;
+      it.label.material.opacity = it.opacity * Math.max(0, (it.drawT - 0.35) / 0.65);
+      it.label.visible = it.label.material.opacity > 0.02;
+
+      // 그리는 끝점(tracer): 그리는 동안 각 획 끝에 빛나는 점
+      const drawing = vis && it.drawT < 1;
+      it.tracerOpacity += ((drawing ? 1 : 0) - it.tracerOpacity) * Math.min(1, dt * 12);
+      it.tracerUniforms.uOpacity.value = it.tracerOpacity;
+      it.tracer.visible = it.tracerOpacity > 0.02;
+      if (it.tracer.visible) {
+        const tp = it.tracer.geometry.getAttribute('position');
+        it.strokes.forEach((s, si) => {
+          const [x, y] = pointAtLength(s, it.drawT * s.length);
+          tp.setXYZ(si, x, y, 4);
+        });
+        tp.needsUpdate = true;
+      }
     }
 
     // 강조 별 페이드
