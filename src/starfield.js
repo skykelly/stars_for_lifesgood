@@ -52,12 +52,15 @@ function starTint() {
 }
 
 /**
- * 1만 개의 배경 별을 THREE.Points 하나로 생성한다.
+ * 배경 별을 THREE.Points 하나로 생성한다.
+ * 회전 피날레에서 전체 스치는 영역이 채워지도록 (cx,cy) 중심의 반경 radius 원반에 균일 분포.
  * @param {number} count 별 개수
- * @param {number} world 성도 반경(±world 범위에 분포)
  * @param {object} uniforms 공유 uniform (uTime, uTwinkle, uZoom, uPixelRatio)
+ * @param {number} cx 원반 중심 x (북극성)
+ * @param {number} cy 원반 중심 y
+ * @param {number} radius 원반 반경
  */
-export function createStarfield(count, world, uniforms) {
+export function createStarfield(count, uniforms, cx, cy, radius) {
   const positions = new Float32Array(count * 3);
   const colors = new Float32Array(count * 3);
   const sizes = new Float32Array(count);
@@ -65,8 +68,11 @@ export function createStarfield(count, world, uniforms) {
   const speeds = new Float32Array(count);
 
   for (let i = 0; i < count; i++) {
-    positions[i * 3 + 0] = (Math.random() * 2 - 1) * world;
-    positions[i * 3 + 1] = (Math.random() * 2 - 1) * world;
+    // 원반 내 균일 분포 (r = R*sqrt(u))
+    const r = radius * Math.sqrt(Math.random());
+    const a = Math.random() * Math.PI * 2;
+    positions[i * 3 + 0] = cx + r * Math.cos(a);
+    positions[i * 3 + 1] = cy + r * Math.sin(a);
     positions[i * 3 + 2] = (Math.random() * 2 - 1) * 40; // 약간의 깊이감
 
     const tint = starTint();

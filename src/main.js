@@ -30,8 +30,7 @@ const POLARIS_FRAGMENT = /* glsl */ `
 // slow-in / slow-out (easeInOutCubic)
 function easeInOut(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
 
-const WORLD = 1600;          // 성도 반경
-const STAR_COUNT = 10000;    // 배경 별 개수
+const WORLD = 1600;          // 성도 반경(탐색 경계)
 const BASE_VIEW_HEIGHT = 2200;
 const ZOOM_RANGE = 6;        // 최소 줌 대비 최대 확대 배율
 
@@ -78,8 +77,20 @@ async function init() {
     uOpacity: { value: 1 },
   };
 
-  // --- 배경 별 1만 개 ---
-  const starfield = createStarfield(STAR_COUNT, WORLD, uniforms);
+  // --- 배경 별 (북극성 중심 원반: 회전 시 스치는 전 영역을 채움) ---
+  const POLARIS = { x: 640, y: 200 };
+  const halfWv = (camera.right - camera.left) / 2 / camera.zoom;
+  const halfHv = (camera.top - camera.bottom) / 2 / camera.zoom;
+  let rMax = 0;
+  for (const cxp of [halfWv, -halfWv]) {
+    for (const cyp of [halfHv, -halfHv]) {
+      rMax = Math.max(rMax, Math.hypot(cxp - POLARIS.x, cyp - POLARIS.y));
+    }
+  }
+  const STAR_RADIUS = rMax * 1.12; // 여유
+  const STAR_DENSITY = 10000 / (3200 * 3200); // 기존 밀도 유지
+  const STAR_COUNT_DISK = Math.min(30000, Math.ceil(STAR_DENSITY * Math.PI * STAR_RADIUS * STAR_RADIUS));
+  const starfield = createStarfield(STAR_COUNT_DISK, uniforms, POLARIS.x, POLARIS.y, STAR_RADIUS);
   scene.add(starfield);
 
   // --- 데이터 로드 ---
@@ -129,7 +140,6 @@ async function init() {
   function clearHighlight() { hlTarget = 0; }
 
   // --- 북극성 (약한 sparkle 느낌 / 세로 2/5 지점) ---
-  const POLARIS = { x: 640, y: 200 };
   const polGeo = new THREE.BufferGeometry();
   polGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([POLARIS.x, POLARIS.y, 3]), 3));
   polGeo.setAttribute('aColor', new THREE.BufferAttribute(new Float32Array([1, 1, 1]), 3));
@@ -424,11 +434,12 @@ async function init() {
       if (rotT < 1) {
         const start = rotT;
         const end = Math.min(1, rotT + dt / ROT_DUR);
-        // 프레임 내 여러 각도로 나눠 그려(sub-step) 바깥 별도 끊김 없는 연속 궤적
-        const SUBSTEPS = 4;
-        for (let s = 1; s <= SUBSTEPS; s++) {
-          const tt = start + (end - start) * (s / SUBSTEPS);
-          pivot.rotation.z = easeInOut(tt) * Math.PI * 2;
+        const angA = easeInOut(start) * Math.PI * 2;
+        const angB = easeInOut(end) * Math.PI * 2;
+        // 이번 프레임 회전각에 맞춰 sub-step 수를 적응적으로 (바깥 별도 끊김 없는 연속 라인)
+        const subs = Math.max(2, Math.min(20, Math.ceil((Math.abs(angB - angA) * STAR_RADIUS) / 14)));
+        for (let s = 1; s <= subs; s++) {
+          pivot.rotation.z = angA + (angB - angA) * (s / subs);
           renderer.render(scene, camera);
         }
         rotT = end;
@@ -439,6 +450,8 @@ async function init() {
         renderer.render(scene, camera);
         if (holdT >= HOLD_DUR) endTrail();
       }
+      // 지상은 회전 중에도 계속 표시 (매 프레임 위에 합성)
+      renderer.render(ground.scene, ground.camera);
     } else {
       renderer.clear();
       renderer.render(scene, camera);
