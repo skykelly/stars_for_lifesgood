@@ -288,8 +288,8 @@ async function init() {
   // --- 컨트롤 ---
   const controls = createControls(camera, canvas, WORLD, (worldPoint, clientXY) => {
     if (trailMode) return;
-    // 북극성은 클릭 효과 없음
-    if (nearPolaris(clientXY.x, clientXY.y)) return;
+    // 북극성(Life's Good 별) 클릭 → 버튼과 동일한 피날레
+    if (nearPolaris(clientXY.x, clientXY.y)) { playLifesGood(); return; }
     const hit = picker.pick(clientXY.x, clientXY.y);
     if (!hit) { hidePopup(); return; }
     if (hit.type === 'star') {
