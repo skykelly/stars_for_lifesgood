@@ -7,6 +7,26 @@ import { createGround } from './ground.js';
 import { createUI } from './ui.js';
 import { getVoice } from './voices.js';
 
+// 북극성용 sparkle(✦) 프래그먼트: 둥근 코어 + 가로/세로 방향 미세한 광선
+const POLARIS_FRAGMENT = /* glsl */ `
+  precision mediump float;
+  uniform float uOpacity;
+  varying vec3 vColor;
+  varying float vTw;
+  void main() {
+    vec2 uv = gl_PointCoord - 0.5;
+    float d = length(uv);
+    float core = exp(-d * d * 46.0);
+    float sx = exp(-uv.y * uv.y * 560.0) * exp(-abs(uv.x) * 4.6);
+    float sy = exp(-uv.x * uv.x * 560.0) * exp(-abs(uv.y) * 4.6);
+    float halo = exp(-d * 7.0) * 0.2;
+    float spike = (sx + sy) * (0.32 + 0.22 * vTw); // 아주 약간
+    float a = (core + spike * 0.5 + halo) * uOpacity;
+    if (a < 0.01) discard;
+    gl_FragColor = vec4(vColor * (0.9 + 0.3 * vTw), clamp(a, 0.0, 1.0));
+  }
+`;
+
 const WORLD = 1600;          // 성도 반경
 const STAR_COUNT = 10000;    // 배경 별 개수
 const BASE_VIEW_HEIGHT = 2200;
@@ -105,27 +125,27 @@ async function init() {
   }
   function clearHighlight() { hlTarget = 0; }
 
-  // --- 북극성 (가운데가 아닌, 상단 우측 열린 하늘에 하나) ---
-  const POLARIS = { x: 640, y: 730 };
+  // --- 북극성 (약한 sparkle 느낌 / 세로 2/5 지점) ---
+  const POLARIS = { x: 640, y: 200 };
   const polGeo = new THREE.BufferGeometry();
   polGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([POLARIS.x, POLARIS.y, 3]), 3));
   polGeo.setAttribute('aColor', new THREE.BufferAttribute(new Float32Array([1, 1, 1]), 3));
-  polGeo.setAttribute('aSize', new THREE.BufferAttribute(new Float32Array([21]), 1));
+  polGeo.setAttribute('aSize', new THREE.BufferAttribute(new Float32Array([28]), 1));
   polGeo.setAttribute('aPhase', new THREE.BufferAttribute(new Float32Array([0]), 1));
   polGeo.setAttribute('aSpeed', new THREE.BufferAttribute(new Float32Array([1.0]), 1));
   const polUniforms = {
-    uTime: uniforms.uTime, uTwinkle: { value: 0.35 }, uZoom: uniforms.uZoom,
+    uTime: uniforms.uTime, uTwinkle: { value: 0.4 }, uZoom: uniforms.uZoom,
     uPixelRatio: uniforms.uPixelRatio, uOpacity: { value: 1 },
   };
   const polaris = new THREE.Points(polGeo, new THREE.ShaderMaterial({
-    uniforms: polUniforms, vertexShader: STAR_VERTEX, fragmentShader: STAR_FRAGMENT,
+    uniforms: polUniforms, vertexShader: STAR_VERTEX, fragmentShader: POLARIS_FRAGMENT,
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
   }));
   polaris.frustumCulled = false;
   scene.add(polaris);
   function nearPolaris(clientX, clientY) {
     const p = worldToScreen(POLARIS.x, POLARIS.y);
-    return Math.hypot(clientX - p.x, clientY - p.y) < 26;
+    return Math.hypot(clientX - p.x, clientY - p.y) < 30;
   }
 
   // --- 하단 지상(지구 곡률 지평선) ---
@@ -219,8 +239,8 @@ async function init() {
 
   // --- 컨트롤 ---
   const controls = createControls(camera, canvas, WORLD, (worldPoint, clientXY) => {
-    // 북극성 클릭 → Life's Good 슬로건(3초 후 사라짐)
-    if (nearPolaris(clientXY.x, clientXY.y)) { ui.showSlogan(); return; }
+    // 북극성은 클릭 효과 없음
+    if (nearPolaris(clientXY.x, clientXY.y)) return;
     const hit = picker.pick(clientXY.x, clientXY.y);
     if (!hit) { hidePopup(); return; }
     if (hit.type === 'star') {
@@ -252,7 +272,7 @@ async function init() {
       if (isDown) { ui.hideName(); return; }
       if (nearPolaris(e.clientX, e.clientY)) {
         const p = worldToScreen(POLARIS.x, POLARIS.y);
-        ui.showName('북극성', p.x, p.y);
+        ui.showName("Life's Good", p.x, p.y, { brand: true });
         canvas.style.cursor = 'pointer';
         return;
       }

@@ -52,20 +52,18 @@ export function createUI(handlers) {
   // ---- 조작 안내 (좌상단) ----
   const hint = document.createElement('div');
   hint.className = 'hint';
-  hint.innerHTML = `
-    <div class="hint-title">별로 전하는 감사</div>
-    <div class="hint-sub">스크롤·핀치로 줌 · 드래그로 이동 · 별을 눌러 메시지 보기</div>
-  `;
+  hint.innerHTML = `<div class="hint-title">Thanks of Customers</div>`;
   document.body.appendChild(hint);
 
   // ---- 호버 시 고객 이름 (글박스 없이 투명 텍스트) ----
   const hoverName = document.createElement('div');
   hoverName.className = 'hover-name';
   document.body.appendChild(hoverName);
-  function showName(text, x, y) {
+  function showName(text, x, y, opts) {
     hoverName.textContent = text;
     hoverName.style.left = `${x}px`;
     hoverName.style.top = `${y}px`;
+    hoverName.classList.toggle('brand', !!(opts && opts.brand));
     hoverName.classList.add('visible');
   }
   function hideName() {
@@ -121,20 +119,8 @@ export function createUI(handlers) {
     if (e.key === 'Escape' && cardVisible) hideMessage();
   });
 
-  // ---- 브랜드 슬로건 (북극성 클릭 시 3초간) ----
-  const slogan = document.createElement('div');
-  slogan.className = 'slogan';
-  slogan.textContent = "Life's Good";
-  document.body.appendChild(slogan);
-  let sloganTimer = null;
-  function showSlogan() {
-    slogan.classList.add('visible');
-    clearTimeout(sloganTimer);
-    sloganTimer = setTimeout(() => slogan.classList.remove('visible'), 3000);
-  }
-
   return {
     state, setToggle, showMessage, positionCard, hideMessage,
-    isCardVisible: () => cardVisible, showName, hideName, showSlogan,
+    isCardVisible: () => cardVisible, showName, hideName,
   };
 }
