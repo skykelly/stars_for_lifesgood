@@ -47,7 +47,21 @@ export function createUI(handlers) {
   resetBtn.addEventListener('click', () => handlers.onReset?.());
   bar.appendChild(resetBtn);
 
+  const lgBtn = document.createElement('button');
+  lgBtn.className = 'toggle-btn action brand-btn';
+  lgBtn.innerHTML = "<span>Life's Good</span>";
+  lgBtn.addEventListener('click', () => handlers.onLifesGood?.());
+  bar.appendChild(lgBtn);
+
   document.body.appendChild(bar);
+
+  // ---- 피날레 브랜드 텍스트 (Life's Good) ----
+  const brand = document.createElement('div');
+  brand.className = 'brand-finale';
+  brand.textContent = "Life's Good";
+  document.body.appendChild(brand);
+  function showBrandText() { brand.classList.add('visible'); }
+  function fadeBrandOut() { brand.classList.remove('visible'); }
 
   // ---- 조작 안내 (좌상단) ----
   const hint = document.createElement('div');
@@ -122,5 +136,6 @@ export function createUI(handlers) {
   return {
     state, setToggle, showMessage, positionCard, hideMessage,
     isCardVisible: () => cardVisible, showName, hideName,
+    showBrandText, fadeBrandOut,
   };
 }

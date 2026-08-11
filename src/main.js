@@ -27,6 +27,9 @@ const POLARIS_FRAGMENT = /* glsl */ `
   }
 `;
 
+// slow-in / slow-out (easeInOutCubic)
+function easeInOut(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+
 const WORLD = 1600;          // 성도 반경
 const STAR_COUNT = 10000;    // 배경 별 개수
 const BASE_VIEW_HEIGHT = 2200;
@@ -148,6 +151,15 @@ async function init() {
     return Math.hypot(clientX - p.x, clientY - p.y) < 30;
   }
 
+  // 별 전체를 북극성 중심으로 회전시키기 위한 피벗(회전 0에서는 항등 변환)
+  const pivot = new THREE.Group();
+  pivot.position.set(POLARIS.x, POLARIS.y, 0);
+  const inner = new THREE.Group();
+  inner.position.set(-POLARIS.x, -POLARIS.y, 0);
+  pivot.add(inner);
+  scene.add(pivot);
+  inner.add(starfield, cons.group, highlight); // 북극성/지상은 제외(중심·오버레이)
+
   // --- 하단 지상(지구 곡률 지평선) ---
   const ground = createGround();
 
@@ -210,6 +222,29 @@ async function init() {
   function startAuto() { clearAutoTimers(); lastAutoIdx = -1; autoStep(); }
   function stopAuto() { clearAutoTimers(); autoActiveIdx = -1; hidePopup(); }
 
+  // --- Life's Good 피날레: 북극성 중심 360° 회전 + 장노출 궤적 ---
+  let trailMode = false, rotT = 0, holdT = 0, lgDelay = null;
+  const ROT_DUR = 5.5, HOLD_DUR = 1.3;
+  function playLifesGood() {
+    if (trailMode || lgDelay) return;
+    autoOn = false; ui.setToggle('auto', false); stopAuto();
+    manualConst = false; ui.setToggle('constellations', false);
+    hidePopup(); ui.hideName();
+    canvas.style.pointerEvents = 'none';   // 애니메이션 중 조작 차단
+    ui.showBrandText();                    // 1) 텍스트 등장
+    lgDelay = setTimeout(() => { lgDelay = null; startTrail(); }, 1000); // 2) 1초 후 회전
+  }
+  function startTrail() {
+    trailMode = true; rotT = 0; holdT = 0;
+    pivot.rotation.z = 0;
+    renderer.clear(); // 한 번 지우고 이후 프레임은 누적(장노출 궤적)
+  }
+  function endTrail() {
+    trailMode = false;
+    pivot.rotation.z = 0;
+    canvas.style.pointerEvents = '';
+  }
+
   // --- UI ---
   const ui = createUI({
     onToggle: (key, value) => {
@@ -232,6 +267,7 @@ async function init() {
       }
     },
     onReset: () => controls.reset(),
+    onLifesGood: () => playLifesGood(),
   });
 
   // --- 픽킹 (배경 별 전체 + 별자리 노드) ---
@@ -239,6 +275,7 @@ async function init() {
 
   // --- 컨트롤 ---
   const controls = createControls(camera, canvas, WORLD, (worldPoint, clientXY) => {
+    if (trailMode) return;
     // 북극성은 클릭 효과 없음
     if (nearPolaris(clientXY.x, clientXY.y)) return;
     const hit = picker.pick(clientXY.x, clientXY.y);
@@ -269,6 +306,7 @@ async function init() {
     hoverRaf = true;
     requestAnimationFrame(() => {
       hoverRaf = false;
+      if (trailMode) { ui.hideName(); return; }
       if (isDown) { ui.hideName(); return; }
       if (nearPolaris(e.clientX, e.clientY)) {
         const p = worldToScreen(POLARIS.x, POLARIS.y);
@@ -381,9 +419,31 @@ async function init() {
 
     ground.uniforms.uTime.value += dt;
 
-    renderer.clear();
-    renderer.render(scene, camera);
-    renderer.render(ground.scene, ground.camera);
+    if (trailMode) {
+      // 북극성 중심 360° 회전(slow-in/out), 화면을 지우지 않고 별을 누적 → 장노출 궤적
+      if (rotT < 1) {
+        const start = rotT;
+        const end = Math.min(1, rotT + dt / ROT_DUR);
+        // 프레임 내 여러 각도로 나눠 그려(sub-step) 바깥 별도 끊김 없는 연속 궤적
+        const SUBSTEPS = 4;
+        for (let s = 1; s <= SUBSTEPS; s++) {
+          const tt = start + (end - start) * (s / SUBSTEPS);
+          pivot.rotation.z = easeInOut(tt) * Math.PI * 2;
+          renderer.render(scene, camera);
+        }
+        rotT = end;
+        if (rotT >= 1) { holdT = 0; ui.fadeBrandOut(); } // 5) 텍스트 페이드아웃
+      } else {
+        holdT += dt;
+        pivot.rotation.z = 0; // 2π ≡ 0 → 별이 시작 위치로 (궤적 위에 겹침)
+        renderer.render(scene, camera);
+        if (holdT >= HOLD_DUR) endTrail();
+      }
+    } else {
+      renderer.clear();
+      renderer.render(scene, camera);
+      renderer.render(ground.scene, ground.camera);
+    }
     requestAnimationFrame(animate);
   }
   animate();
