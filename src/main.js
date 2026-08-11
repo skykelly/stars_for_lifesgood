@@ -107,6 +107,29 @@ async function init() {
   }
   function clearHighlight() { hlTarget = 0; }
 
+  // --- 북극성 (가운데가 아닌, 상단 우측 열린 하늘에 하나) ---
+  const POLARIS = { x: 640, y: 730 };
+  const polGeo = new THREE.BufferGeometry();
+  polGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([POLARIS.x, POLARIS.y, 3]), 3));
+  polGeo.setAttribute('aColor', new THREE.BufferAttribute(new Float32Array([1, 1, 1]), 3));
+  polGeo.setAttribute('aSize', new THREE.BufferAttribute(new Float32Array([21]), 1));
+  polGeo.setAttribute('aPhase', new THREE.BufferAttribute(new Float32Array([0]), 1));
+  polGeo.setAttribute('aSpeed', new THREE.BufferAttribute(new Float32Array([1.0]), 1));
+  const polUniforms = {
+    uTime: uniforms.uTime, uTwinkle: { value: 0.35 }, uZoom: uniforms.uZoom,
+    uPixelRatio: uniforms.uPixelRatio, uOpacity: { value: 1 },
+  };
+  const polaris = new THREE.Points(polGeo, new THREE.ShaderMaterial({
+    uniforms: polUniforms, vertexShader: STAR_VERTEX, fragmentShader: STAR_FRAGMENT,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  }));
+  polaris.frustumCulled = false;
+  scene.add(polaris);
+  function nearPolaris(clientX, clientY) {
+    const p = worldToScreen(POLARIS.x, POLARIS.y);
+    return Math.hypot(clientX - p.x, clientY - p.y) < 26;
+  }
+
   // --- 하단 지상(지구 곡률 지평선) ---
   const ground = createGround();
 
@@ -198,6 +221,8 @@ async function init() {
 
   // --- 컨트롤 ---
   const controls = createControls(camera, canvas, WORLD, (worldPoint, clientXY) => {
+    // 북극성 클릭 → Life's Good 슬로건(3초 후 사라짐)
+    if (nearPolaris(clientXY.x, clientXY.y)) { ui.showSlogan(); return; }
     const hit = picker.pick(clientXY.x, clientXY.y);
     if (!hit) { hidePopup(); return; }
     if (hit.type === 'star') {
@@ -227,6 +252,12 @@ async function init() {
     requestAnimationFrame(() => {
       hoverRaf = false;
       if (isDown) { ui.hideName(); return; }
+      if (nearPolaris(e.clientX, e.clientY)) {
+        const p = worldToScreen(POLARIS.x, POLARIS.y);
+        ui.showName('북극성', p.x, p.y);
+        canvas.style.cursor = 'pointer';
+        return;
+      }
       const hit = picker.pick(e.clientX, e.clientY);
       if (hit && hit.type === 'star') {
         const v = getVoice(hit.index);

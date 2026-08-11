@@ -99,6 +99,28 @@ html, body {
   background: rgba(255, 217, 122, 0.12);
 }
 
+/* ---- 브랜드 슬로건 (Life's Good) ---- */
+.slogan {
+  position: fixed;
+  left: 50%;
+  top: 44%;
+  z-index: 40;
+  transform: translate(-50%, -50%) scale(0.9);
+  font-family: "Helvetica Neue", Arial, "Noto Sans KR", system-ui, sans-serif;
+  font-weight: 800;
+  font-size: clamp(42px, 9vw, 120px);
+  letter-spacing: -0.02em;
+  color: #e4002b;
+  text-shadow: 0 0 34px rgba(228, 0, 43, 0.5), 0 6px 26px rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+.slogan.visible {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
 /* ---- 호버 고객 이름 (글박스 없이 투명 텍스트) ---- */
 .hover-name {
   position: fixed;

@@ -121,5 +121,20 @@ export function createUI(handlers) {
     if (e.key === 'Escape' && cardVisible) hideMessage();
   });
 
-  return { state, setToggle, showMessage, positionCard, hideMessage, isCardVisible: () => cardVisible, showName, hideName };
+  // ---- 브랜드 슬로건 (북극성 클릭 시 3초간) ----
+  const slogan = document.createElement('div');
+  slogan.className = 'slogan';
+  slogan.textContent = "Life's Good";
+  document.body.appendChild(slogan);
+  let sloganTimer = null;
+  function showSlogan() {
+    slogan.classList.add('visible');
+    clearTimeout(sloganTimer);
+    sloganTimer = setTimeout(() => slogan.classList.remove('visible'), 3000);
+  }
+
+  return {
+    state, setToggle, showMessage, positionCard, hideMessage,
+    isCardVisible: () => cardVisible, showName, hideName, showSlogan,
+  };
 }
