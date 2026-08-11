@@ -67,9 +67,17 @@ function hash(i, seed) {
   return x >>> 0;
 }
 
+// 이름 가운데를 *로 마스킹: '김철수' → '김*수', '김서연' → '김*연'
+function maskName(name) {
+  const n = name.length;
+  if (n <= 1) return name;
+  if (n === 2) return name[0] + '*';
+  return name[0] + '*'.repeat(n - 2) + name[n - 1];
+}
+
 export function getVoice(index) {
   const sn = SURNAMES[hash(index, 1) % SURNAMES.length];
   const gn = GIVENS[hash(index, 2) % GIVENS.length];
   const msg = MESSAGES[hash(index, 3) % MESSAGES.length];
-  return { name: `${sn}${gn} 고객님`, message: msg };
+  return { name: `${maskName(sn + gn)} 고객님`, message: msg };
 }
