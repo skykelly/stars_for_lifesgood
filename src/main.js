@@ -232,16 +232,18 @@ async function init() {
   function startAuto() { clearAutoTimers(); lastAutoIdx = -1; autoStep(); }
   function stopAuto() { clearAutoTimers(); autoActiveIdx = -1; hidePopup(); }
 
-  // --- Life's Good 피날레: 북극성 중심 360° 회전 + 장노출 궤적 ---
+  // --- Life's Good 피날레: 북극성 중심 회전 + 장노출 궤적(거의 완전한 원) ---
   let trailMode = false, rotT = 0, holdT = 0, lgDelay = null;
-  const ROT_DUR = 5.5, HOLD_DUR = 1.3;
+  const ROT_DUR = 8.5, HOLD_DUR = 2.8, TURNS = 1.25; // 더 긴 장노출 + 원 완성/겹침
   function playLifesGood() {
     if (trailMode || lgDelay) return;
     autoOn = false; ui.setToggle('auto', false); stopAuto();
     manualConst = false; ui.setToggle('constellations', false);
-    hidePopup(); ui.hideName();
+    hidePopup();
     canvas.style.pointerEvents = 'none';   // 애니메이션 중 조작 차단
-    ui.showBrandText();                    // 1) 텍스트 등장
+    // 1) 북극성 별 위에 'Life's Good' 텍스트(호버 효과와 동일)
+    const p = worldToScreen(POLARIS.x, POLARIS.y);
+    ui.showName("Life's Good", p.x, p.y, { brand: true });
     lgDelay = setTimeout(() => { lgDelay = null; startTrail(); }, 1000); // 2) 1초 후 회전
   }
   function startTrail() {
@@ -316,7 +318,7 @@ async function init() {
     hoverRaf = true;
     requestAnimationFrame(() => {
       hoverRaf = false;
-      if (trailMode) { ui.hideName(); return; }
+      if (trailMode) return; // 피날레 중엔 북극성 위 텍스트 유지
       if (isDown) { ui.hideName(); return; }
       if (nearPolaris(e.clientX, e.clientY)) {
         const p = worldToScreen(POLARIS.x, POLARIS.y);
@@ -434,16 +436,16 @@ async function init() {
       if (rotT < 1) {
         const start = rotT;
         const end = Math.min(1, rotT + dt / ROT_DUR);
-        const angA = easeInOut(start) * Math.PI * 2;
-        const angB = easeInOut(end) * Math.PI * 2;
+        const angA = easeInOut(start) * Math.PI * 2 * TURNS;
+        const angB = easeInOut(end) * Math.PI * 2 * TURNS;
         // 이번 프레임 회전각에 맞춰 sub-step 수를 적응적으로 (바깥 별도 끊김 없는 연속 라인)
-        const subs = Math.max(2, Math.min(20, Math.ceil((Math.abs(angB - angA) * STAR_RADIUS) / 14)));
+        const subs = Math.max(2, Math.min(24, Math.ceil((Math.abs(angB - angA) * STAR_RADIUS) / 14)));
         for (let s = 1; s <= subs; s++) {
           pivot.rotation.z = angA + (angB - angA) * (s / subs);
           renderer.render(scene, camera);
         }
         rotT = end;
-        if (rotT >= 1) { holdT = 0; ui.fadeBrandOut(); } // 5) 텍스트 페이드아웃
+        if (rotT >= 1) { holdT = 0; ui.hideName(); } // 5) 텍스트 페이드아웃
       } else {
         holdT += dt;
         pivot.rotation.z = 0; // 2π ≡ 0 → 별이 시작 위치로 (궤적 위에 겹침)

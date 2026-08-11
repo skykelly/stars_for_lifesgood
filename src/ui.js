@@ -55,14 +55,6 @@ export function createUI(handlers) {
 
   document.body.appendChild(bar);
 
-  // ---- 피날레 브랜드 텍스트 (Life's Good) ----
-  const brand = document.createElement('div');
-  brand.className = 'brand-finale';
-  brand.textContent = "Life's Good";
-  document.body.appendChild(brand);
-  function showBrandText() { brand.classList.add('visible'); }
-  function fadeBrandOut() { brand.classList.remove('visible'); }
-
   // ---- 조작 안내 (좌상단) ----
   const hint = document.createElement('div');
   hint.className = 'hint';
@@ -136,6 +128,5 @@ export function createUI(handlers) {
   return {
     state, setToggle, showMessage, positionCard, hideMessage,
     isCardVisible: () => cardVisible, showName, hideName,
-    showBrandText, fadeBrandOut,
   };
 }

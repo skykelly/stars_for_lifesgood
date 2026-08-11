@@ -112,28 +112,6 @@ html, body {
   background: rgba(228, 0, 43, 0.16);
 }
 
-/* ---- 피날레 브랜드 텍스트 (Life's Good) ---- */
-.brand-finale {
-  position: fixed;
-  left: 50%;
-  top: 42%;
-  z-index: 40;
-  transform: translate(-50%, -50%) scale(0.92);
-  font-family: "Helvetica Neue", Arial, system-ui, sans-serif;
-  font-weight: 800;
-  font-size: clamp(44px, 9vw, 124px);
-  letter-spacing: -0.02em;
-  color: #e4002b;
-  text-shadow: 0 0 36px rgba(228, 0, 43, 0.5), 0 6px 26px rgba(0, 0, 0, 0.55);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.6s ease, transform 0.6s ease;
-}
-.brand-finale.visible {
-  opacity: 1;
-  transform: translate(-50%, -50%) scale(1);
-}
-
 /* ---- 호버 고객 이름 (글박스 없이 투명 텍스트) ---- */
 .hover-name {
   position: fixed;
@@ -150,13 +128,14 @@ html, body {
   transition: opacity 0.12s ease;
 }
 .hover-name.visible { opacity: 1; }
-/* 북극성 호버: Life's Good (빨강/볼드/2배 크기/산세리프) */
+/* 북극성 호버 / 피날레: Life's Good (빨강/볼드/2배 크기/세리프) */
 .hover-name.brand {
-  font-family: "Helvetica Neue", Arial, system-ui, sans-serif;
+  font-family: Georgia, "Times New Roman", "Noto Serif KR", serif;
   font-size: 26px;
-  font-weight: 800;
+  font-weight: 700;
   color: #e4002b;
   text-shadow: 0 0 20px rgba(228, 0, 43, 0.5), 0 2px 10px rgba(0, 0, 0, 0.7);
+  transition: opacity 0.5s ease; /* 피날레 종료 시 부드러운 페이드아웃 */
 }
 
 /* ---- 메시지 카드 ---- */
